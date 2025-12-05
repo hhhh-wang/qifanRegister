@@ -15,15 +15,24 @@ EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username"
-PASSWORD = "your_password"
+USERNAME = "your_username10"
+PASSWORD = "your_password6"
+TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
+WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
+# 新增：真实姓名与身份证号（已由你提供）
+NAME = "路庆峰"
+ID_NUMBER = "410522197604129336"
 
 USER_INPUT_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\user_input.png"
 PSD_INPUT_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\psd_input.png"
 CONFIRM_PSD_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\psd_confirm.png"
 
-TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
-WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
+# 新增：姓名与身份证输入框图片
+NAME_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\name.png"
+ID_CARD_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\id_card.png"
+
+WANCHENG_RENZHENG_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng_renzheng.png"
+
 
 
 def is_process_running(exe_name: str) -> bool:
@@ -151,11 +160,47 @@ def wait_and_click_image(image_path: str, timeout: float = 8.0, interval: float 
 
 
 def click_and_type(image_path: str, text: str, timeout: float = 8.0) -> bool:
-    """等待并点击指定图片，然后输入文本（使用 pyautogui.write）。"""
+    """等待并点击指定图片，然后输入文本（优先使用粘贴以兼容中文）。"""
     ok = wait_and_click_image(image_path, timeout=timeout)
     if not ok:
         return False
     time.sleep(0.12)
+
+    # 如果包含非 ASCII 字符，优先使用剪贴板粘贴（更可靠地支持中文/中文输入法）
+    use_clipboard = any(ord(ch) > 127 for ch in text)
+
+    if use_clipboard:
+        pasted = False
+        # 优先使用 pyperclip（若已安装）
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            time.sleep(0.06)
+            pyautogui.hotkey("ctrl", "v")
+            pasted = True
+        except Exception:
+            pasted = False
+
+        # 回退到 tkinter 剪贴板（标准库，通常可用）
+        if not pasted:
+            try:
+                import tkinter as _tk
+                r = _tk.Tk()
+                r.withdraw()
+                r.clipboard_clear()
+                r.clipboard_append(text)
+                r.update()  # 确保内容写入系统剪贴板
+                r.destroy()
+                time.sleep(0.06)
+                pyautogui.hotkey("ctrl", "v")
+                pasted = True
+            except Exception:
+                pasted = False
+
+        if pasted:
+            print(f"已通过剪贴板粘贴文本（长度 {len(text)}）到: {os.path.basename(image_path)}")
+            return True
+        # 若剪贴板方式都失败，回退到 pyautogui.write
     try:
         pyautogui.write(text, interval=0.04)
         print(f"已输入文本（长度 {len(text)}）到: {os.path.basename(image_path)}")
@@ -206,6 +251,17 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
             time.sleep(0.2)
             # 点击完成
             wait_and_click_image(WANCHENG_IMAGE)
+
+            # 等待并填写真实姓名与身份证号（如果页面出现对应输入框）
+            # 先等待 name 输入框出现并输入名字
+            time.sleep(0.4)
+            click_and_type(NAME_IMAGE, NAME)
+            time.sleep(0.2)
+            # 再等待 id_card 输入框出现并输入身份证号
+            click_and_type(ID_CARD_IMAGE, ID_NUMBER)
+            time.sleep(0.2)
+            # 点击“完成认证”按钮
+            wait_and_click_image(WANCHENG_RENZHENG_IMAGE)
         if wait:
             proc.wait()
         return proc
