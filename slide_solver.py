@@ -22,6 +22,123 @@ os.makedirs(DEBUG_DIR, exist_ok=True)
 # 滑动按钮图片路径
 SLIDER_BUTTON_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\huadong_anniu.png"
 
+def auto_solve_window(window_path: Optional[str] = None, hwnd: Optional[int] = None) -> bool:
+    """
+    自动从窗口截图或图片路径中找到拼图、定位缺口并滑动。
+    若提供 hwnd，会把图片内坐标转换为屏幕坐标并直接在窗口上操作；
+    若只提供 window_path，会要求你手动提供 base_left/base_top（交互）。
+    """
+    if window_path is None and hwnd is None:
+        print("需要 window_path 或 hwnd 其中之一。")
+        return False
+
+    if cv2 is None:
+        print("警告：未检测到 OpenCV，功能受限。请安装 opencv-python 提升稳定性。")
+        return False
+
+    # 如果有 hwnd，优先根据 hwnd 直接截屏并覆盖 window_path
+    if hwnd is not None:
+        try:
+            rect = get_window_rect_from_hwnd(hwnd)
+            if rect is None:
+                print("无法通过 hwnd 获取窗口矩形。")
+                return False
+            left, top, right, bottom = rect
+            w = right - left
+            h = bottom - top
+            img = pyautogui.screenshot(region=(left, top, w, h))
+            img_cv = cv2_from_pil(img.convert("RGB"))
+            _save_debug_img("window_capture.png", img_cv)
+            base_left, base_top = left, top
+        except Exception as e:
+            print("根据 hwnd 截图失败:", e)
+            return False
+    else:
+        img_cv = load_image(window_path)
+        base_left = None
+        base_top = None
+        _save_debug_img("window_capture.png", img_cv)
+
+    # 找到 puzzle 区域
+    bbox = find_puzzle_box_cv(img_cv)
+    if not bbox:
+        print("未能自动定位拼图区域，请手动裁切 gap/full 或把窗口截图发给我以便调整算法。")
+        return False
+    x, y, cw, ch = bbox
+    crop = img_cv[y:y + ch, x:x + cw].copy()
+    _save_debug_img("puzzle_crop.png", crop)
+
+    # 先找到拼图块的位置
+    piece_pos = find_piece_position(crop)
+    piece_x = None
+    if piece_pos:
+        px, py, pw, ph = piece_pos
+        piece_x = px + pw // 2  # 拼图块中心x
+        print(f"找到拼图块位置: x={px}, y={py}, w={pw}, h={ph}, center_x={piece_x}")
+
+    # 提取模板（用于匹配缺口）
+    tpl = extract_piece_template(crop)
+    if tpl is None:
+        print("未能提取滑块小片模板，尝试手工提供模板或手动裁切。")
+        return False
+
+    # 定位缺口 x（相对 crop 左上），传入拼图块位置以排除错误匹配
+    gap_x = find_hole_x_by_template(crop, tpl, piece_x=piece_x)
+    if gap_x is None:
+        print("模板匹配出缺口失败，尝试增大调试阈值或手动定位。")
+        return False
+
+    # 定位滑块中心（相对 crop）- 这个可能不需要了，因为我们从按钮位置开始拖动
+    slider_center = find_slider_center(crop)
+    if slider_center is None:
+        print("未能检测到滑块按钮中心，将使用滑动按钮位置作为起始点")
+        # 如果找不到滑块中心，可以继续，因为我们会从按钮位置开始
+    else:
+        sx, sy = slider_center
+        print(f"检测到滑块中心位置: ({sx}, {sy})")
+
+    # 将 crop 内 x 转换为屏幕坐标
+    if base_left is None:
+        # 交互输入 base 左上角
+        try:
+            base_left = int(input("请输入 window 截图在屏幕上的 left (px)：").strip())
+            base_top = int(input("请输入 window 截图在屏幕上的 top (px)：").strip())
+        except Exception:
+            print("输入无效，退出。")
+            return False
+
+    gap_screen_x = base_left + x + gap_x
+    gap_screen_y = base_top + y + (ch // 2)  # 使用拼图区域中心作为y坐标
+    
+    print(f"缺口屏幕坐标: ({gap_screen_x}, {gap_screen_y})")
+
+    # 查找滑动按钮位置
+    button_pos = find_slider_button_position(timeout=5.0)
+    if button_pos is None:
+        print("错误：未能找到滑动按钮，无法执行滑动")
+        return False
+    
+    button_x, button_y = button_pos
+    
+    # 计算从按钮到缺口的距离（用于验证）
+    distance = gap_screen_x - button_x
+    print(f"计算移动距离: {distance} px (gap_screen_x={gap_screen_x}, button_x={button_x})")
+    
+    # 验证距离合理性
+    if distance <= 0:
+        print(f"错误：计算出的移动距离为负数或零 ({distance})，可能是定位错误")
+        return False
+    
+    if distance > 500:
+        print(f"警告：移动距离 {distance} 过大，可能定位错误")
+        return False
+    
+    # 从按钮位置拖动到缺口位置
+    print("开始执行滑动操作...")
+    ok = perform_slide_from_button(button_x, button_y, gap_screen_x, gap_screen_y)
+    time.sleep(0.8)
+    return ok
+
 
 def _save_debug_img(name: str, img):
     """保存调试图片"""
@@ -630,119 +747,3 @@ def perform_slide_from_button(button_x: int, button_y: int, target_x: int, targe
         return False
 
 
-def auto_solve_window(window_path: Optional[str] = None, hwnd: Optional[int] = None) -> bool:
-    """
-    自动从窗口截图或图片路径中找到拼图、定位缺口并滑动。
-    若提供 hwnd，会把图片内坐标转换为屏幕坐标并直接在窗口上操作；
-    若只提供 window_path，会要求你手动提供 base_left/base_top（交互）。
-    """
-    if window_path is None and hwnd is None:
-        print("需要 window_path 或 hwnd 其中之一。")
-        return False
-
-    if cv2 is None:
-        print("警告：未检测到 OpenCV，功能受限。请安装 opencv-python 提升稳定性。")
-        return False
-
-    # 如果有 hwnd，优先根据 hwnd 直接截屏并覆盖 window_path
-    if hwnd is not None:
-        try:
-            rect = get_window_rect_from_hwnd(hwnd)
-            if rect is None:
-                print("无法通过 hwnd 获取窗口矩形。")
-                return False
-            left, top, right, bottom = rect
-            w = right - left
-            h = bottom - top
-            img = pyautogui.screenshot(region=(left, top, w, h))
-            img_cv = cv2_from_pil(img.convert("RGB"))
-            _save_debug_img("window_capture.png", img_cv)
-            base_left, base_top = left, top
-        except Exception as e:
-            print("根据 hwnd 截图失败:", e)
-            return False
-    else:
-        img_cv = load_image(window_path)
-        base_left = None
-        base_top = None
-        _save_debug_img("window_capture.png", img_cv)
-
-    # 找到 puzzle 区域
-    bbox = find_puzzle_box_cv(img_cv)
-    if not bbox:
-        print("未能自动定位拼图区域，请手动裁切 gap/full 或把窗口截图发给我以便调整算法。")
-        return False
-    x, y, cw, ch = bbox
-    crop = img_cv[y:y + ch, x:x + cw].copy()
-    _save_debug_img("puzzle_crop.png", crop)
-
-    # 先找到拼图块的位置
-    piece_pos = find_piece_position(crop)
-    piece_x = None
-    if piece_pos:
-        px, py, pw, ph = piece_pos
-        piece_x = px + pw // 2  # 拼图块中心x
-        print(f"找到拼图块位置: x={px}, y={py}, w={pw}, h={ph}, center_x={piece_x}")
-
-    # 提取模板（用于匹配缺口）
-    tpl = extract_piece_template(crop)
-    if tpl is None:
-        print("未能提取滑块小片模板，尝试手工提供模板或手动裁切。")
-        return False
-
-    # 定位缺口 x（相对 crop 左上），传入拼图块位置以排除错误匹配
-    gap_x = find_hole_x_by_template(crop, tpl, piece_x=piece_x)
-    if gap_x is None:
-        print("模板匹配出缺口失败，尝试增大调试阈值或手动定位。")
-        return False
-
-    # 定位滑块中心（相对 crop）- 这个可能不需要了，因为我们从按钮位置开始拖动
-    slider_center = find_slider_center(crop)
-    if slider_center is None:
-        print("未能检测到滑块按钮中心，将使用滑动按钮位置作为起始点")
-        # 如果找不到滑块中心，可以继续，因为我们会从按钮位置开始
-    else:
-        sx, sy = slider_center
-        print(f"检测到滑块中心位置: ({sx}, {sy})")
-
-    # 将 crop 内 x 转换为屏幕坐标
-    if base_left is None:
-        # 交互输入 base 左上角
-        try:
-            base_left = int(input("请输入 window 截图在屏幕上的 left (px)：").strip())
-            base_top = int(input("请输入 window 截图在屏幕上的 top (px)：").strip())
-        except Exception:
-            print("输入无效，退出。")
-            return False
-
-    gap_screen_x = base_left + x + gap_x
-    gap_screen_y = base_top + y + (ch // 2)  # 使用拼图区域中心作为y坐标
-    
-    print(f"缺口屏幕坐标: ({gap_screen_x}, {gap_screen_y})")
-
-    # 查找滑动按钮位置
-    button_pos = find_slider_button_position(timeout=5.0)
-    if button_pos is None:
-        print("错误：未能找到滑动按钮，无法执行滑动")
-        return False
-    
-    button_x, button_y = button_pos
-    
-    # 计算从按钮到缺口的距离（用于验证）
-    distance = gap_screen_x - button_x
-    print(f"计算移动距离: {distance} px (gap_screen_x={gap_screen_x}, button_x={button_x})")
-    
-    # 验证距离合理性
-    if distance <= 0:
-        print(f"错误：计算出的移动距离为负数或零 ({distance})，可能是定位错误")
-        return False
-    
-    if distance > 500:
-        print(f"警告：移动距离 {distance} 过大，可能定位错误")
-        return False
-    
-    # 从按钮位置拖动到缺口位置
-    print("开始执行滑动操作...")
-    ok = perform_slide_from_button(button_x, button_y, gap_screen_x, gap_screen_y)
-    time.sleep(0.8)
-    return ok

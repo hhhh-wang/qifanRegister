@@ -16,7 +16,7 @@ EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username26"
+USERNAME = "your_username73"
 PASSWORD = "your_password6"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
@@ -36,6 +36,130 @@ ID_NUMBER = "410522197604129336"
 
 WANCHENG_RENZHENG_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng_renzheng.png"
 
+def start_7fgame(wait: bool = False) -> subprocess.Popen:
+    """
+    启动 7FGame.exe 并返回 Popen 对象（如果使用 ShellExecute 提升则返回 None）。
+    如果已在运行，则不重复启动。
+    参数 wait=True 会在启动后阻塞直到进程结束（仅对 Popen 有效）。
+    """
+    if not os.path.isfile(EXE_PATH):
+        raise FileNotFoundError(f"找不到可执行文件: {EXE_PATH}")
+
+    exe_name = os.path.basename(EXE_PATH)
+    if is_process_running(exe_name):
+        print(f"{exe_name} 已在运行，跳过启动。")
+        return None
+
+    cwd = os.path.dirname(EXE_PATH)
+    try:
+        # 使用 Popen 启动，设置 cwd 为 exe 所在目录
+        proc = subprocess.Popen([EXE_PATH], cwd=cwd)
+        print(f"已启动 {exe_name} (pid={proc.pid})")
+        # 启动后尝试等待并点击登录按钮（不阻塞进程本身）
+        clicked = click_login_button()
+        if clicked:
+            # 等待界面稳定
+            time.sleep(0.6)
+            # 点击用户名输入框并输入账号
+            click_and_type(USER_INPUT_IMAGE, USERNAME)
+            time.sleep(0.2)
+            # 点击密码输入框并输入密码（第一次）
+            click_and_type(PSD_INPUT_IMAGE, PASSWORD)
+            time.sleep(0.2)
+            # 确认密码：点击确认密码输入框并输入密码（若无单独图片则回退到 PSD_INPUT_IMAGE）
+            confirm_img = CONFIRM_PSD_IMAGE if os.path.isfile(CONFIRM_PSD_IMAGE) else PSD_INPUT_IMAGE
+            if confirm_img == PSD_INPUT_IMAGE:
+                print("未找到确认密码图片，使用密码输入框图片作为替代。")
+            click_and_type(confirm_img, PASSWORD)
+            time.sleep(0.2)
+            # 点击同意（向左偏移 20 像素，按需调整）
+            wait_and_click_image(TONGYI_IMAGE, offset_x=-40)
+            time.sleep(0.2)
+            # 点击完成
+            wait_and_click_image(WANCHENG_IMAGE)
+
+            # 等待并填写真实姓名与身份证号（如果页面出现对应输入框）
+            # 先等待 name 输入框出现并输入名字
+            time.sleep(0.4)
+            click_and_type(NAME_IMAGE, NAME)
+            time.sleep(0.2)
+            # 再等待 id_card 输入框出现并输入身份证号
+            click_and_type(ID_CARD_IMAGE, ID_NUMBER)
+            time.sleep(0.2)
+            # 点击“完成认证”按钮
+            wait_and_click_image(WANCHENG_RENZHENG_IMAGE)
+            time.sleep(1)
+
+            # 滑动验证码
+            print("开始处理滑动验证码...")
+            try:
+                # 获取进程的窗口句柄
+                hwnd = wait_for_main_window(proc.pid, timeout=5.0)
+                if hwnd:
+                    # 将窗口置前
+                    try:
+                        ctypes.windll.user32.ShowWindow(hwnd, 5)
+                        ctypes.windll.user32.SetForegroundWindow(hwnd)
+                        time.sleep(0.3)
+                    except Exception:
+                        pass
+                    # 调用滑动验证码解决函数
+                    success = slide_solver.auto_solve_window(hwnd=hwnd)
+                    if success:
+                        print("滑动验证码处理成功")
+                        time.sleep(1.5)  # 等待验证结果
+                    else:
+                        print("滑动验证码处理失败，可能需要手动处理")
+                else:
+                    print("未能获取窗口句柄，尝试使用屏幕截图方式...")
+                    # 备用方案：使用屏幕截图
+                    screenshot_path = os.path.join(os.path.dirname(__file__), f"window_capture_{int(time.time())}.png")
+                    pyautogui.screenshot(screenshot_path)
+                    success = slide_solver.auto_solve_window(window_path=screenshot_path)
+                    if success:
+                        print("滑动验证码处理成功（使用截图方式）")
+                    else:
+                        print("滑动验证码处理失败")
+            except Exception as e:
+                print(f"处理滑动验证码时出错: {e}")
+                import traceback
+                traceback.print_exc()
+        if wait:
+            proc.wait()
+        return proc
+    except OSError as e:
+        # WinError 740: 需要提升（管理员权限）
+        if getattr(e, "winerror", None) == 740:
+            print("检测到需要提升权限，尝试以管理员身份启动...")
+            # 先尝试通过 ShellExecuteEx 获取 pid
+            pid = run_elevated_with_pid(EXE_PATH, cwd)
+            if pid:
+                print(f"已以管理员方式启动，pid={pid}。等待窗口创建...")
+                hwnd = wait_for_main_window(pid, timeout=12.0)
+                if hwnd:
+                    print(f"找到启动窗口 hwnd={hwnd}，尝试置前并点击登录按钮...")
+                    try:
+                        ctypes.windll.user32.ShowWindow(hwnd, 5)
+                        ctypes.windll.user32.SetForegroundWindow(hwnd)
+                        time.sleep(0.12)
+                    except Exception:
+                        pass
+                    click_login_button()
+                    return None
+                else:
+                    print("未在超时内找到窗口，仍尝试查找登录按钮（基于屏幕截图）。")
+                    click_login_button()
+                    return None
+            else:
+                # 回退到原先的 run_elevated（无 pid）
+                ok = run_elevated(EXE_PATH, cwd)
+                if ok:
+                    print("已使用提升权限启动程序（无法获取 pid）。")
+                    click_login_button()
+                    return None
+                else:
+                    raise RuntimeError("尝试以管理员身份启动失败。") from e
+        raise
 
 
 
@@ -299,130 +423,6 @@ def click_and_type(image_path: str, text: str, timeout: float = 8.0) -> bool:
         return False
 
 
-def start_7fgame(wait: bool = False) -> subprocess.Popen:
-    """
-    启动 7FGame.exe 并返回 Popen 对象（如果使用 ShellExecute 提升则返回 None）。
-    如果已在运行，则不重复启动。
-    参数 wait=True 会在启动后阻塞直到进程结束（仅对 Popen 有效）。
-    """
-    if not os.path.isfile(EXE_PATH):
-        raise FileNotFoundError(f"找不到可执行文件: {EXE_PATH}")
-
-    exe_name = os.path.basename(EXE_PATH)
-    if is_process_running(exe_name):
-        print(f"{exe_name} 已在运行，跳过启动。")
-        return None
-
-    cwd = os.path.dirname(EXE_PATH)
-    try:
-        # 使用 Popen 启动，设置 cwd 为 exe 所在目录
-        proc = subprocess.Popen([EXE_PATH], cwd=cwd)
-        print(f"已启动 {exe_name} (pid={proc.pid})")
-        # 启动后尝试等待并点击登录按钮（不阻塞进程本身）
-        clicked = click_login_button()
-        if clicked:
-            # 等待界面稳定
-            time.sleep(0.6)
-            # 点击用户名输入框并输入账号
-            click_and_type(USER_INPUT_IMAGE, USERNAME)
-            time.sleep(0.2)
-            # 点击密码输入框并输入密码（第一次）
-            click_and_type(PSD_INPUT_IMAGE, PASSWORD)
-            time.sleep(0.2)
-            # 确认密码：点击确认密码输入框并输入密码（若无单独图片则回退到 PSD_INPUT_IMAGE）
-            confirm_img = CONFIRM_PSD_IMAGE if os.path.isfile(CONFIRM_PSD_IMAGE) else PSD_INPUT_IMAGE
-            if confirm_img == PSD_INPUT_IMAGE:
-                print("未找到确认密码图片，使用密码输入框图片作为替代。")
-            click_and_type(confirm_img, PASSWORD)
-            time.sleep(0.2)
-            # 点击同意（向左偏移 20 像素，按需调整）
-            wait_and_click_image(TONGYI_IMAGE, offset_x=-40)
-            time.sleep(0.2)
-            # 点击完成
-            wait_and_click_image(WANCHENG_IMAGE)
-
-            # 等待并填写真实姓名与身份证号（如果页面出现对应输入框）
-            # 先等待 name 输入框出现并输入名字
-            time.sleep(0.4)
-            click_and_type(NAME_IMAGE, NAME)
-            time.sleep(0.2)
-            # 再等待 id_card 输入框出现并输入身份证号
-            click_and_type(ID_CARD_IMAGE, ID_NUMBER)
-            time.sleep(0.2)
-            # 点击“完成认证”按钮
-            wait_and_click_image(WANCHENG_RENZHENG_IMAGE)
-            time.sleep(1)
-
-            # 滑动验证码
-            print("开始处理滑动验证码...")
-            try:
-                # 获取进程的窗口句柄
-                hwnd = wait_for_main_window(proc.pid, timeout=5.0)
-                if hwnd:
-                    # 将窗口置前
-                    try:
-                        ctypes.windll.user32.ShowWindow(hwnd, 5)
-                        ctypes.windll.user32.SetForegroundWindow(hwnd)
-                        time.sleep(0.3)
-                    except Exception:
-                        pass
-                    # 调用滑动验证码解决函数
-                    success = slide_solver.auto_solve_window(hwnd=hwnd)
-                    if success:
-                        print("滑动验证码处理成功")
-                        time.sleep(1.5)  # 等待验证结果
-                    else:
-                        print("滑动验证码处理失败，可能需要手动处理")
-                else:
-                    print("未能获取窗口句柄，尝试使用屏幕截图方式...")
-                    # 备用方案：使用屏幕截图
-                    screenshot_path = os.path.join(os.path.dirname(__file__), f"window_capture_{int(time.time())}.png")
-                    pyautogui.screenshot(screenshot_path)
-                    success = slide_solver.auto_solve_window(window_path=screenshot_path)
-                    if success:
-                        print("滑动验证码处理成功（使用截图方式）")
-                    else:
-                        print("滑动验证码处理失败")
-            except Exception as e:
-                print(f"处理滑动验证码时出错: {e}")
-                import traceback
-                traceback.print_exc()
-        if wait:
-            proc.wait()
-        return proc
-    except OSError as e:
-        # WinError 740: 需要提升（管理员权限）
-        if getattr(e, "winerror", None) == 740:
-            print("检测到需要提升权限，尝试以管理员身份启动...")
-            # 先尝试通过 ShellExecuteEx 获取 pid
-            pid = run_elevated_with_pid(EXE_PATH, cwd)
-            if pid:
-                print(f"已以管理员方式启动，pid={pid}。等待窗口创建...")
-                hwnd = wait_for_main_window(pid, timeout=12.0)
-                if hwnd:
-                    print(f"找到启动窗口 hwnd={hwnd}，尝试置前并点击登录按钮...")
-                    try:
-                        ctypes.windll.user32.ShowWindow(hwnd, 5)
-                        ctypes.windll.user32.SetForegroundWindow(hwnd)
-                        time.sleep(0.12)
-                    except Exception:
-                        pass
-                    click_login_button()
-                    return None
-                else:
-                    print("未在超时内找到窗口，仍尝试查找登录按钮（基于屏幕截图）。")
-                    click_login_button()
-                    return None
-            else:
-                # 回退到原先的 run_elevated（无 pid）
-                ok = run_elevated(EXE_PATH, cwd)
-                if ok:
-                    print("已使用提升权限启动程序（无法获取 pid）。")
-                    click_login_button()
-                    return None
-                else:
-                    raise RuntimeError("尝试以管理员身份启动失败。") from e
-        raise
 
 
 def capture_window_by_hwnd(hwnd, save_dir=r"C:\Users\Administrator\Desktop"):
