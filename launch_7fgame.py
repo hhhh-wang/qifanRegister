@@ -16,7 +16,7 @@ EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username83"
+USERNAME = "your_username115"
 PASSWORD = "your_password6"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"

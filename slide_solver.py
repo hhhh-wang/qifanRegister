@@ -4,7 +4,7 @@ import ctypes
 import pyautogui
 from ctypes import wintypes
 from captcha_recognizer.slider import Slider
-
+import random
 # -----------------------------
 # 可配置路径
 # -----------------------------
@@ -92,33 +92,110 @@ def click_at(x, y):
         return False
 
 
+
+
 def drag_slider(start_pos, distance):
-    """按下滑块并平滑拖动到指定水平距离（不改变 Y）"""
     x, y = start_pos
+
     try:
-        # 移到起点
         ctypes.windll.user32.SetCursorPos(x, y)
-        time.sleep(0.08)
-        # 按下左键
+        time.sleep(0.1)
+
+        # 左键按下
         ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
 
-        # 拖动分步模拟 (线性分段)
-        steps = 80
-        for i in range(steps):
-            dx = int(distance * (i + 1) / steps)
-            ctypes.windll.user32.SetCursorPos(x + dx, y)
-            time.sleep(0.025 + (i % 5)*0.002)  # 微微变化的延迟，让轨迹更像人操作
+        track = generate_track(distance)
 
-        # 松开
+        curr_x, curr_y = x, y
+
+        for dx in track:
+            dy = random.randint(-2, 2)  # 垂直抖动
+
+            curr_x += dx
+            curr_y += dy
+
+            ctypes.windll.user32.SetCursorPos(curr_x, curr_y)
+
+            # 速度抖动
+            time.sleep(random.uniform(0.008, 0.02))
+
+        # 松开左键
+        time.sleep(0.05)
         ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
         return True
+
     except Exception:
-        # 尝试确保松开
-        try:
-            ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
-        except Exception:
-            pass
+        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
         return False
+def generate_track(distance):
+    track = []
+    current = 0
+    mid = distance * 0.75
+    t = 0.2
+    v = 0
+
+    while current < distance:
+        if current < mid:
+            a = random.uniform(1.5, 2.5)   # 加速
+        else:
+            a = random.uniform(-3.5, -2.0) # 减速
+
+        v0 = v
+        v = v0 + a * t
+        move = v0 * t + 0.5 * a * t * t
+
+        if move < 1:
+            move = random.uniform(0.5, 1.2)
+
+        current += move
+        track.append(round(move))
+
+    # 微调，确保精准
+    offset = sum(track) - distance
+    if offset != 0:
+        track.append(-offset)
+
+    # 人类常见的回拉
+    track.extend([-2, -1, 1])
+
+    return track
+
+# def drag_slider(start_pos, distance):
+#     """按下滑块并平滑拖动到指定弧线距离"""
+#     x, y = start_pos
+#     try:
+#         # 移到起点
+#         ctypes.windll.user32.SetCursorPos(x, y)
+#         time.sleep(0.08)
+#         # 按下左键
+#         ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+
+#         # 拖动分步模拟 (线性分段)
+#         steps = 40
+#         max_down = 15  # 最大下滑 4 像素
+#         for i in range(steps):
+#             dx = int(distance * (i + 1) / steps)
+#             dy = int(max_down * (i + 1) / steps)
+#             print(f"Step {i}: dx={dx}, dy={dy}, distance={distance}")
+#             ctypes.windll.user32.SetCursorPos(x + dx, y + dy)
+#             time.sleep(0.025 + (i % 5)*0.002)  # 微微变化的延迟，让轨迹更像人操作
+
+#         # 松开
+#         ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+#         return True
+#     except Exception:
+#         # 尝试确保松开
+#         try:
+#             ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+#         except Exception:
+#             pass
+#         return False
+
+
+
+
+
+
 
 
 # ----------------------------------------------------------------------
@@ -192,7 +269,9 @@ def solve_slider(hwnd, max_retries=5):
 
         if distance <= 0 or distance > 250:
             print("❌ 偏移量不合法（<=0 或 >250），跳过本次尝试。")
-            time.sleep(0.3)
+            rx, ry, used_img  = find_refresh_button_pos()
+            click_at(rx, ry)
+            time.sleep(0.6)  # 等待页面刷新
             continue
 
         # 6) 执行滑动
