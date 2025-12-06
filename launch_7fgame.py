@@ -8,15 +8,22 @@ import ctypes
 from ctypes import wintypes
 import slide_solver
 import uuid
+import random
 # 让 pyautogui 更稳定（可按需修改）
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
 
 EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
-
+def generate_uu_id(max_len=14):
+    """
+    生成 uu_id，最长 max_len 个字符
+    规则：字母 + 数字（不含特殊符号）
+    """
+    raw = uuid.uuid4().hex  # 32 位
+    return raw[:max_len]
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username119"
+USERNAME = generate_uu_id(10)
 PASSWORD = "your_password6"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
@@ -154,7 +161,8 @@ def after_slider_fill_username(username: str):
         return False
 
     time.sleep(0.15)
-    user_name = generate_uu_id(14)
+
+    user_name = generate_chinese_nickname()
     try:
         click_and_type(USERNAME_CHECK_IMAGE, user_name)
         pyautogui.keyDown('shift')
@@ -171,6 +179,29 @@ def after_slider_fill_username(username: str):
 
     print("🎉 创建流程完成")
     return True
+
+
+def generate_chinese_nickname():
+    """
+    生成网名：
+    4–5 个常见汉字 + 随机 4 位数字
+    """
+    # 常用、显示安全的汉字池（可自行扩展）
+    chinese_chars = list(
+        "风云星辰山海明月清风流光夜雨青山白鹿 "
+        "桃花长安浮生孤舟远行听海逐梦旅人森林"
+        "小鹿星河漫游人间旧梦南山晚风初雪"
+    )
+
+    # 去掉空格
+    chinese_chars = [c for c in chinese_chars if c.strip()]
+
+    name_len = random.choice([4, 5])
+    name_part = ''.join(random.sample(chinese_chars, name_len))
+
+    number_part = f"{random.randint(0, 9999):04d}"
+
+    return name_part + number_part
 
 
 def generate_uu_id(max_len=14):
@@ -392,55 +423,59 @@ def wait_and_click_image(image_path: str, timeout: float = 8.0, interval: float 
 
 
 def click_and_type(image_path: str, text: str, timeout: float = 8.0) -> bool:
-    """等待并点击指定图片，然后输入文本（优先使用粘贴以兼容中文）。"""
+    """
+    等待并点击指定图片，然后【统一通过剪贴板粘贴】输入文本，
+    彻底绕过中文输入法 / IME 问题。
+    """
     ok = wait_and_click_image(image_path, timeout=timeout)
     if not ok:
         return False
+
     time.sleep(0.12)
 
-    # 如果包含非 ASCII 字符，优先使用剪贴板粘贴（更可靠地支持中文/中文输入法）
-    use_clipboard = any(ord(ch) > 127 for ch in text)
+    # 先清空输入框（防止有残留）
+    try:
+        pyautogui.hotkey("ctrl", "a")
+        time.sleep(0.05)
+        pyautogui.press("backspace")
+        time.sleep(0.05)
+    except Exception:
+        pass
 
-    if use_clipboard:
+    pasted = False
+
+    # ✅ 优先：pyperclip
+    try:
+        import pyperclip
+        pyperclip.copy(text)
+        time.sleep(0.05)
+        pyautogui.hotkey("ctrl", "v")
+        pasted = True
+    except Exception:
         pasted = False
-        # 优先使用 pyperclip（若已安装）
+
+    # ✅ 兜底：tkinter 剪贴板（标准库）
+    if not pasted:
         try:
-            import pyperclip
-            pyperclip.copy(text)
-            time.sleep(0.06)
+            import tkinter as _tk
+            r = _tk.Tk()
+            r.withdraw()
+            r.clipboard_clear()
+            r.clipboard_append(text)
+            r.update()  # 强制刷新剪贴板
+            r.destroy()
+            time.sleep(0.05)
             pyautogui.hotkey("ctrl", "v")
             pasted = True
         except Exception:
             pasted = False
 
-        # 回退到 tkinter 剪贴板（标准库，通常可用）
-        if not pasted:
-            try:
-                import tkinter as _tk
-                r = _tk.Tk()
-                r.withdraw()
-                r.clipboard_clear()
-                r.clipboard_append(text)
-                r.update()  # 确保内容写入系统剪贴板
-                r.destroy()
-                time.sleep(0.06)
-                pyautogui.hotkey("ctrl", "v")
-                pasted = True
-            except Exception:
-                pasted = False
-
-        if pasted:
-            print(f"已通过剪贴板粘贴文本（长度 {len(text)}）到: {os.path.basename(image_path)}")
-            return True
-        # 若剪贴板方式都失败，回退到 pyautogui.write
-    try:
-        pyautogui.write(text, interval=0.04)
-        print(f"已输入文本（长度 {len(text)}）到: {os.path.basename(image_path)}")
+    if pasted:
+        print(f"✅ 已通过剪贴板粘贴文本（长度 {len(text)}）到: {os.path.basename(image_path)}")
         return True
-    except Exception as e:
-        print(f"输入文本失败: {e}")
+    else:
+        print("❌ 剪贴板粘贴失败")
         return False
-
 
 
 
