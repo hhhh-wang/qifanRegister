@@ -7,7 +7,7 @@ import pyautogui
 import ctypes
 from ctypes import wintypes
 import slide_solver
-
+import uuid
 # 让 pyautogui 更稳定（可按需修改）
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
@@ -16,7 +16,7 @@ EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username115"
+USERNAME = "your_username119"
 PASSWORD = "your_password6"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
@@ -35,6 +35,10 @@ NAME = "路庆峰"
 ID_NUMBER = "410522197604129336"
 
 WANCHENG_RENZHENG_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng_renzheng.png"
+
+
+USERNAME_CHECK_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\username_jianche.png"
+CHUANGJIAN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\chuangjian.png"
 
 def start_7fgame(wait: bool = False) -> subprocess.Popen:
     """
@@ -94,6 +98,11 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
             print("开始处理滑动验证码...")
             hwnd = wait_for_main_window(proc.pid, timeout=5.0)
             slide_solver.solve_slider(hwnd)
+            # ✅ 滑块完成后：等待用户名输入并创建
+            time.sleep(0.5)
+            after_slider_fill_username(USERNAME)
+
+
         if wait:
             proc.wait()
         return proc
@@ -131,6 +140,46 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
                     raise RuntimeError("尝试以管理员身份启动失败。") from e
         raise
 
+def after_slider_fill_username(username: str):
+    print("等待用户名输入框出现...")
+
+    # 1️⃣ 等待用户名检测输入框
+    ok = wait_and_click_image(
+        USERNAME_CHECK_IMAGE,
+        timeout=15.0,
+        confidence=0.8
+    )
+    if not ok:
+        print("❌ 未检测到用户名输入框")
+        return False
+
+    time.sleep(0.15)
+    user_name = generate_uu_id(14)
+    try:
+        click_and_type(USERNAME_CHECK_IMAGE, user_name)
+        pyautogui.keyDown('shift')
+        print(f"已输入用户名：{user_name}")
+        
+        ok = wait_and_click_image(
+            CHUANGJIAN_IMAGE,
+            timeout=10.0,
+            confidence=0.8
+        )
+    except Exception as e:
+        print(f"❌ 输入用户名失败: {e}")
+        return False
+
+    print("🎉 创建流程完成")
+    return True
+
+
+def generate_uu_id(max_len=14):
+    """
+    生成 uu_id，最长 max_len 个字符
+    规则：字母 + 数字（不含特殊符号）
+    """
+    raw = uuid.uuid4().hex  # 32 位
+    return raw[:max_len]
 
 
 def is_process_running(exe_name: str) -> bool:
