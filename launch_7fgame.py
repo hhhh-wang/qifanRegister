@@ -16,7 +16,7 @@ EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
-USERNAME = "your_username73"
+USERNAME = "your_username83"
 PASSWORD = "your_password6"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
@@ -92,38 +92,8 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
 
             # 滑动验证码
             print("开始处理滑动验证码...")
-            try:
-                # 获取进程的窗口句柄
-                hwnd = wait_for_main_window(proc.pid, timeout=5.0)
-                if hwnd:
-                    # 将窗口置前
-                    try:
-                        ctypes.windll.user32.ShowWindow(hwnd, 5)
-                        ctypes.windll.user32.SetForegroundWindow(hwnd)
-                        time.sleep(0.3)
-                    except Exception:
-                        pass
-                    # 调用滑动验证码解决函数
-                    success = slide_solver.auto_solve_window(hwnd=hwnd)
-                    if success:
-                        print("滑动验证码处理成功")
-                        time.sleep(1.5)  # 等待验证结果
-                    else:
-                        print("滑动验证码处理失败，可能需要手动处理")
-                else:
-                    print("未能获取窗口句柄，尝试使用屏幕截图方式...")
-                    # 备用方案：使用屏幕截图
-                    screenshot_path = os.path.join(os.path.dirname(__file__), f"window_capture_{int(time.time())}.png")
-                    pyautogui.screenshot(screenshot_path)
-                    success = slide_solver.auto_solve_window(window_path=screenshot_path)
-                    if success:
-                        print("滑动验证码处理成功（使用截图方式）")
-                    else:
-                        print("滑动验证码处理失败")
-            except Exception as e:
-                print(f"处理滑动验证码时出错: {e}")
-                import traceback
-                traceback.print_exc()
+            hwnd = wait_for_main_window(proc.pid, timeout=5.0)
+            slide_solver.solve_slider(hwnd)
         if wait:
             proc.wait()
         return proc
