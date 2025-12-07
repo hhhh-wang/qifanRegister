@@ -24,7 +24,7 @@ def generate_uu_id(max_len=14):
     return raw[:max_len]
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
 USERNAME = generate_uu_id(10)
-PASSWORD = "your_password6"
+PASSWORD = "a123123"
 TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
 WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
 
@@ -188,9 +188,9 @@ def generate_chinese_nickname():
     """
     # 常用、显示安全的汉字池（可自行扩展）
     chinese_chars = list(
-        "风云星辰山海明月清风流光夜雨青山白鹿 "
+        "风云星辰山海明月清风流光夜雨青白鹿 "
         "桃花长安浮生孤舟远行听海逐梦旅人森林"
-        "小鹿星河漫游人间旧梦南山晚风初雪"
+        "小鹿星河漫游人旧梦南山晚风初雪"
     )
 
     # 去掉空格

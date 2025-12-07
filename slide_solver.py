@@ -212,95 +212,120 @@ def solve_slider(hwnd, max_retries=5):
     - 最多重试 max_retries 次
     返回 True/False
     """
-    attempts = 0
+    try:
 
-    while attempts < max_retries:
-        attempts += 1
-        print(f"[滑动尝试] 第 {attempts} 次...")
+        attempts = 0
 
-        # 1) 窗口截图
-        img, (left, top, w, h) = screenshot_window(hwnd)
-        import numpy as np
-        img_rgb = np.array(img)
+        while attempts < max_retries:
+            attempts += 1
+            print(f"[滑动尝试] 第 {attempts} 次...")
 
-        # 2) 识别缺口
-        try:
-            slider = Slider()
-            box, conf = slider.identify(source=img_rgb, show=False)
-        except Exception as e:
-            print(f"Slider 识别出错: {e}")
-            box = None
-            conf = 0.0
+            # 1) 窗口截图
+            img, (left, top, w, h) = screenshot_window(hwnd)
+            import numpy as np
+            img_rgb = np.array(img)
 
-        if box is None:
-            print("❌ 未识别到缺口，无法继续本次尝试。")
-            # 若未识别到缺口，保存截图用于调试并直接返回 False（或进行下一次尝试）
-            debug_path = os.path.join(DEBUG_DIR, f"no_gap_{int(time.time())}.png")
+            # 2) 识别缺口
             try:
-                img.save(debug_path)
-                print(f"已保存调试截图: {debug_path}")
-            except Exception:
-                pass
-            # 在某些情况下可以等待并重试
-            time.sleep(0.5)
-            # 继续下一次尝试
-            continue
+                slider = Slider()
+                box, conf = slider.identify(source=img_rgb, show=False)
+            except Exception as e:
+                print(f"Slider 识别出错: {e}")
+                box = None
+                conf = 0.0
 
-        gap_x = int(box[0])  # 缺口左上角 x（相对于窗口左上）
-        print(f"识别到缺口 (窗口内坐标): x={gap_x}, 置信度={conf:.2f}")
+            if box is None:
+                print("❌ 未识别到缺口，无法继续本次尝试。")
+                # 若未识别到缺口，保存截图用于调试并直接返回 False（或进行下一次尝试）
+                debug_path = os.path.join(DEBUG_DIR, f"no_gap_{int(time.time())}.png")
+                try:
+                    img.save(debug_path)
+                    print(f"已保存调试截图: {debug_path}")
+                except Exception:
+                    pass
+                # 在某些情况下可以等待并重试
+                time.sleep(0.5)
+                # 继续下一次尝试
+                continue
 
-        # 3) 找滑块按钮（屏幕坐标）
-        slider_btn = get_slider_button_pos()
-        if slider_btn is None:
-            print("❌ 未在屏幕上找到滑块按钮图片（huadong_anniu）。")
-            # 保存截图，重试
-            time.sleep(0.5)
-            continue
+            gap_x = int(box[0])  # 缺口左上角 x（相对于窗口左上）
+            print(f"识别到缺口 (窗口内坐标): x={gap_x}, 置信度={conf:.2f}")
 
-        slider_screen_x, slider_screen_y = slider_btn
-        print(f"滑块按钮屏幕坐标: ({slider_screen_x}, {slider_screen_y})")
+            # 3) 找滑块按钮（屏幕坐标）
+            slider_btn = get_slider_button_pos()
+            if slider_btn is None:
+                print("❌ 未在屏幕上找到滑块按钮图片（huadong_anniu）。")
+                # 保存截图，重试
+                time.sleep(0.5)
+                continue
 
-        # 4) 计算缺口的屏幕 x 坐标
-        gap_screen_x = left + gap_x
+            slider_screen_x, slider_screen_y = slider_btn
+            print(f"滑块按钮屏幕坐标: ({slider_screen_x}, {slider_screen_y})")
 
-        # 5) 计算滑动距离
-        distance = gap_screen_x - slider_screen_x  + 23  # 微调补偿
-        print(f"计算出的滑动距离: {distance}px")
+            # 4) 计算缺口的屏幕 x 坐标
+            gap_screen_x = left + gap_x
 
-        if distance <= 0 or distance > 250:
-            print("❌ 偏移量不合法（<=0 或 >250），跳过本次尝试。")
-            rx, ry, used_img  = find_refresh_button_pos()
-            click_at(rx, ry)
-            time.sleep(0.6)  # 等待页面刷新
-            continue
+            # 5) 计算滑动距离
+            distance = gap_screen_x - slider_screen_x  + 23  # 微调补偿
+            print(f"计算出的滑动距离: {distance}px")
 
-        # 6) 执行滑动
-        ok = drag_slider((slider_screen_x, slider_screen_y), distance)
-        if not ok:
-            print("❌ 滑动操作发生错误（drag_slider 返回 False）。准备重试。")
-            time.sleep(0.4)
-            continue
+            if distance <= 0 or distance > 250:
+                print("❌ 偏移量不合法（<=0 或 >250），跳过本次尝试。")
+                rx, ry, used_img  = find_refresh_button_pos()
+                click_at(rx, ry)
+                time.sleep(0.6)  # 等待页面刷新
+                continue
 
-        # 7) 等待 2 秒，检测是否出现刷新按钮（说明失败）
-        time.sleep(2.0)
-        refresh = find_refresh_button_pos()
-        if refresh is None:
-            # 未发现刷新按钮，视为成功
-            print("✅ 未检测到刷新按钮，认为滑动已成功。")
-            return True
+            # 6) 执行滑动
+            ok = drag_slider((slider_screen_x, slider_screen_y), distance)
+            if not ok:
+                print("❌ 滑动操作发生错误（drag_slider 返回 False）。准备重试。")
+                time.sleep(0.4)
+                continue
 
-        # 如果发现刷新按钮，点击刷新并重试
-        try:
-            rx, ry, used_img = refresh
-            print(f"检测到刷新按钮（{used_img}），说明滑动失败。准备点击刷新并重试。")
-            click_at(rx, ry)
-            time.sleep(0.6)  # 等待页面刷新
-            continue
-        except Exception as e:
-            print(f"刷新按钮点击失败: {e}. 将重试整个流程。")
-            time.sleep(0.6)
-            continue
+            # 7) 等待 2 秒，检测是否出现刷新按钮（说明失败）
+            time.sleep(2.0)
+            refresh = find_refresh_button_pos()
+            if refresh is None:
+                # 未发现刷新按钮，视为成功
+                print("✅ 未检测到刷新按钮，认为滑动已成功。")
+                return True
 
-    # 超出重试次数仍未成功
-    print(f"❌ 已达到最大重试次数 ({max_retries})，仍未成功通过滑动验证码。")
-    return False
+            # 如果发现刷新按钮，点击刷新并重试
+            try:
+                rx, ry, used_img = refresh
+                print(f"检测到刷新按钮（{used_img}），说明滑动失败。准备点击刷新并重试。")
+                click_at(rx, ry)
+                time.sleep(0.6)  # 等待页面刷新
+                continue
+            except Exception as e:
+                print(f"刷新按钮点击失败: {e}. 将重试整个流程。")
+                time.sleep(0.6)
+                continue
+
+        # 超出重试次数仍未成功
+        print(f"❌ 已达到最大重试次数 ({max_retries})，仍未成功通过滑动验证码。")
+        return False
+    finally:
+        #  无论成功 / 失败 / 异常，都走这里
+        clear_debug_pngs()
+
+
+
+
+def clear_debug_pngs():
+    """删除 DEBUG_DIR 下所有 png 文件"""
+    try:
+        if not os.path.isdir(DEBUG_DIR):
+            return
+
+        for fname in os.listdir(DEBUG_DIR):
+            if fname.lower().endswith(".png"):
+                fpath = os.path.join(DEBUG_DIR, fname)
+                try:
+                    os.remove(fpath)
+                except Exception:
+                    pass
+        print("🧹 DEBUG_DIR 下的 png 文件已清理")
+    except Exception as e:
+        print(f"清理 DEBUG_DIR 失败: {e}")
