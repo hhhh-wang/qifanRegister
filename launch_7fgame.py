@@ -13,8 +13,43 @@ import random
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
 
+def get_base_dir():
+    """
+    获取程序运行根目录：
+    - 开发环境：py 文件所在目录
+    - PyInstaller 打包后：exe 解包临时目录
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 环境
+        return sys._MEIPASS
+    else:
+        # 普通 python 运行
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = get_base_dir()
+
+
 EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
+
 LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
+
+PIC_DIR = os.path.join(BASE_DIR, "pic")
+
+LOGIN_IMAGE = os.path.join(PIC_DIR, "login.png")
+TONGYI_IMAGE = os.path.join(PIC_DIR, "tongyi.png")
+WANCHENG_IMAGE = os.path.join(PIC_DIR, "wancheng.png")
+
+USER_INPUT_IMAGE = os.path.join(PIC_DIR, "user_input.png")
+PSD_INPUT_IMAGE = os.path.join(PIC_DIR, "psd_input.png")
+CONFIRM_PSD_IMAGE = os.path.join(PIC_DIR, "psd_confirm.png")
+
+NAME_IMAGE = os.path.join(PIC_DIR, "name.png")
+ID_CARD_IMAGE = os.path.join(PIC_DIR, "id_card.png")
+
+USERNAME_CHECK_IMAGE = os.path.join(PIC_DIR, "username_jianche.png")
+CHUANGJIAN_IMAGE = os.path.join(PIC_DIR, "chuangjian.png")
+
+
 def generate_uu_id(max_len=14):
     """
     生成 uu_id，最长 max_len 个字符
@@ -25,27 +60,12 @@ def generate_uu_id(max_len=14):
 # 新增全局账号密码与控件图片路径（请根据需要修改用户名/密码）
 USERNAME = generate_uu_id(10)
 PASSWORD = "a123123"
-TONGYI_IMAGE    = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\tongyi.png"
-WANCHENG_IMAGE  = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng.png"
 
-
-USER_INPUT_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\user_input.png"
-
-PSD_INPUT_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\psd_input.png"
-CONFIRM_PSD_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\psd_confirm.png"
-
-# 新增：姓名与身份证输入框图片
-NAME_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\name.png"
-ID_CARD_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\id_card.png"
 # 新增：真实姓名与身份证号（已由你提供）
 NAME = "路庆峰"
 ID_NUMBER = "410522197604129336"
 
-WANCHENG_RENZHENG_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\wancheng_renzheng.png"
 
-
-USERNAME_CHECK_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\username_jianche.png"
-CHUANGJIAN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\chuangjian.png"
 
 def start_7fgame(wait: bool = False) -> subprocess.Popen:
     """
