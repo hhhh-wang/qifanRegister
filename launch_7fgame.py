@@ -11,6 +11,7 @@ import uuid
 import msvcrt
 import tempfile
 import random
+import subprocess
 # 让 pyautogui 更稳定（可按需修改）
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
@@ -30,10 +31,8 @@ def get_base_dir():
 
 BASE_DIR = get_base_dir()
 
-
+PIC_DIR = os.path.join(BASE_DIR, "pic")
 EXE_PATH  = r"D:\Game\7fgame\7FGame.exe"
-
-LOGIN_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\login.png"
 
 PIC_DIR = os.path.join(BASE_DIR, "pic")
 
@@ -71,13 +70,12 @@ ID_NUMBER = "410522197604129336"
 LOCK_FILE = os.path.join(tempfile.gettempdir(), "7fgame.lock")
 
 
-def acquire_lock():
+def is_qifan_running():
     try:
-        fh = open(LOCK_FILE, "w")
-        msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
-        return fh
+        out = subprocess.check_output("tasklist", shell=True, text=True, encoding="gbk")
+        return "7fgame" in out.lower() or "起凡" in out
     except Exception:
-        return None
+        return False
 
 
 
@@ -88,7 +86,7 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
     如果已在运行，则不重复启动。
     参数 wait=True 会在启动后阻塞直到进程结束（仅对 Popen 有效）。
     """
-    lock = acquire_lock()
+    lock = is_qifan_running()
     if not lock:
         print("7FGame.exe 已在运行，跳过启动。")
         sys.exit(0)
@@ -205,6 +203,7 @@ def after_slider_fill_username(username: str):
             timeout=10.0,
             confidence=0.8
         )
+        pyautogui.keyUp('shift')
     except Exception as e:
         print(f"❌ 输入用户名失败: {e}")
         return False
