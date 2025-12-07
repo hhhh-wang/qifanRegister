@@ -5,13 +5,16 @@ import pyautogui
 from ctypes import wintypes
 from captcha_recognizer.slider import Slider
 import random
-# -----------------------------
-# 可配置路径
-# -----------------------------
-DEBUG_DIR = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\slide_debug"
-SLIDER_BUTTON_IMAGE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\huadong_anniu.png"
-# 你提供的刷新按钮路径（注意：如果你实际文件有扩展名，请确认）
-SLIDER_REFRESH_BASE = r"D:\workSoftware\codeSpace\AI\python\qifanRegister\pic\huadong_shuaxin"
+import launch_7fgame
+
+
+BASE_DIR = launch_7fgame.get_base_dir()
+
+DEBUG_DIR = os.path.join(BASE_DIR, "slide_debug")
+
+SLIDER_BUTTON_IMAGE = os.path.join(BASE_DIR, "huadong_anniu.png")
+SLIDER_REFRESH_BASE = os.path.join(BASE_DIR, "huadong_shuaxin")
+
 
 os.makedirs(DEBUG_DIR, exist_ok=True)
 

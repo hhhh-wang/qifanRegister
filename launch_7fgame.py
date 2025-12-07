@@ -8,6 +8,8 @@ import ctypes
 from ctypes import wintypes
 import slide_solver
 import uuid
+import msvcrt
+import tempfile
 import random
 # 让 pyautogui 更稳定（可按需修改）
 pyautogui.FAILSAFE = False
@@ -48,6 +50,7 @@ ID_CARD_IMAGE = os.path.join(PIC_DIR, "id_card.png")
 
 USERNAME_CHECK_IMAGE = os.path.join(PIC_DIR, "username_jianche.png")
 CHUANGJIAN_IMAGE = os.path.join(PIC_DIR, "chuangjian.png")
+WANCHENG_RENZHENG_IMAGE = os.path.join(PIC_DIR, "wancheng_renzheng.png")
 
 
 def generate_uu_id(max_len=14):
@@ -65,6 +68,18 @@ PASSWORD = "a123123"
 NAME = "路庆峰"
 ID_NUMBER = "410522197604129336"
 
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "7fgame.lock")
+
+
+def acquire_lock():
+    try:
+        fh = open(LOCK_FILE, "w")
+        msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        return fh
+    except Exception:
+        return None
+
+
 
 
 def start_7fgame(wait: bool = False) -> subprocess.Popen:
@@ -73,19 +88,16 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
     如果已在运行，则不重复启动。
     参数 wait=True 会在启动后阻塞直到进程结束（仅对 Popen 有效）。
     """
-    if not os.path.isfile(EXE_PATH):
-        raise FileNotFoundError(f"找不到可执行文件: {EXE_PATH}")
-
-    exe_name = os.path.basename(EXE_PATH)
-    if is_process_running(exe_name):
-        print(f"{exe_name} 已在运行，跳过启动。")
-        return None
+    lock = acquire_lock()
+    if not lock:
+        print("7FGame.exe 已在运行，跳过启动。")
+        sys.exit(0)
 
     cwd = os.path.dirname(EXE_PATH)
     try:
         # 使用 Popen 启动，设置 cwd 为 exe 所在目录
         proc = subprocess.Popen([EXE_PATH], cwd=cwd)
-        print(f"已启动 {exe_name} (pid={proc.pid})")
+        #print(f"已启动 {exe_name} (pid={proc.pid})")
         # 启动后尝试等待并点击登录按钮（不阻塞进程本身）
         clicked = click_login_button()
         if clicked:
@@ -231,15 +243,6 @@ def generate_uu_id(max_len=14):
     """
     raw = uuid.uuid4().hex  # 32 位
     return raw[:max_len]
-
-
-def is_process_running(exe_name: str) -> bool:
-    """通过 tasklist 检查是否已运行（Windows）。"""
-    try:
-        output = subprocess.check_output(["tasklist"], encoding="utf-8", errors="ignore")
-    except Exception:
-        return False
-    return exe_name.lower() in output.lower()
 
 
 def run_elevated(exe_path: str, cwd: str) -> bool:
