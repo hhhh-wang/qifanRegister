@@ -76,8 +76,8 @@ USERNAME = generate_uu_id(10)
 PASSWORD = "a123123"
 
 # 新增:真实姓名与身份证号(已由你提供)
-NAME = "路庆峰"
-ID_NUMBER = "410522197604129336"
+NAME = "李文良"
+ID_NUMBER = "532524196606022097"
 
 LOCK_FILE = os.path.join(tempfile.gettempdir(), "7fgame.lock")
 
@@ -299,9 +299,9 @@ def generate_chinese_nickname():
     log.debug("生成中文昵称")
     # 常用、显示安全的汉字池(可自行扩展)
     chinese_chars = list(
-        "风云星辰山海明月清风流光夜雨青白鹿 "
+        "风云星辰山海白武林月清风流光夜雨青白鹿 "
         "桃花长安浮生孤舟远行听海逐梦旅人森林"
-        "小鹿星河漫游人旧梦南山晚风初雪"
+        "牛马鹿星河漫游人旧梦南山晚风初雪"
     )
 
     # 去掉空格
