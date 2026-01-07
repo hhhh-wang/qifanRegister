@@ -737,17 +737,11 @@ def capture_window_by_hwnd(hwnd, save_dir=r"C:\Users\Administrator\Desktop"):
         return None
 
 
-# if __name__ == "__main__":
-#     # 命令行支持: python launch_7fgame.py [--wait]
-#     wait_flag = "--wait" in sys.argv
-#     log.info(f"程序启动,参数: wait={wait_flag}")
-#     start_7fgame(wait=wait_flag)
-#     log.info("程序执行完毕")
-
-
-    # 测试代码
 if __name__ == "__main__":
-    print("测试 generate_uu_id 方法：")
-    for i in range(10):
-        uid = generate_uu_id()
-        print(f"第 {i+1} 次生成: {uid}")
+    # 命令行支持: python launch_7fgame.py [--wait]
+    wait_flag = "--wait" in sys.argv
+    log.info(f"程序启动,参数: wait={wait_flag}")
+    start_7fgame(wait=wait_flag)
+    log.info("程序执行完毕")
+
+
