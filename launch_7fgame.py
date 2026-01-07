@@ -60,19 +60,67 @@ CHUANGJIAN_IMAGE = os.path.join(PIC_DIR, "chuangjian.png")
 WANCHENG_RENZHENG_IMAGE = os.path.join(PIC_DIR, "wancheng_renzheng.png")
 
 
-def generate_uu_id(max_len=14):
+def _get_app_dir():
     """
-    生成 uu_id,最长 max_len 个字符
-    规则:字母 + 数字(不含特殊符号)
+    返回程序所在目录
+    - exe：exe 文件所在路径
+    - py ：当前文件所在路径
     """
-    raw = uuid.uuid4().hex  # 32 位
-    uid = raw[:max_len]
-    log.debug(f"生成 UUID: {uid}")
-    return uid
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(sys.argv[0]))
 
+BASE_DIR = _get_app_dir()
+UID_FILE = os.path.join(BASE_DIR, "uid_counter.txt")
+
+
+def generate_uu_id():
+    """
+    生成 uu_id，格式为 src + 数字序号
+    序号从文件中读取并自动累加
+    
+    输出示例：
+    src1
+    src2
+    src3
+    ...
+    
+    Returns:
+        str: 生成的 uid，如 "src1", "src2" 等
+    """
+    try:
+        # 读取当前序号
+        if os.path.exists(UID_FILE):
+            with open(UID_FILE, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                current_num = int(content) if content else 0
+        else:
+            current_num = 0
+            log.info(f"UID 计数器文件不存在，创建新文件: {UID_FILE}")
+        
+        # 累加序号
+        next_num = current_num + 1
+        
+        # 写回文件
+        with open(UID_FILE, 'w', encoding='utf-8') as f:
+            f.write(str(next_num))
+        
+        # 生成 uid
+        uid = f"src{next_num}"
+        log.debug(f"生成 UID: {uid} (当前计数: {next_num})")
+        
+        return uid
+        
+    except Exception as e:
+        log.error(f"生成 UID 失败: {e}", exc_info=True)
+        # 降级方案：使用时间戳
+        import time
+        fallback_uid = f"src{int(time.time() * 1000) % 100000}"
+        log.warning(f"使用降级 UID: {fallback_uid}")
+        return fallback_uid
 
 # 新增全局账号密码与控件图片路径(请根据需要修改用户名/密码)
-USERNAME = generate_uu_id(10)
+USERNAME = generate_uu_id()
 PASSWORD = "a123123"
 
 # 新增:真实姓名与身份证号(已由你提供)
@@ -301,7 +349,7 @@ def generate_chinese_nickname():
     chinese_chars = list(
         "风云星辰山海白武林月清风流光夜雨青白鹿 "
         "桃花长安浮生孤舟远行听海逐梦旅人森林"
-        "牛马鹿星河漫游人旧梦南山晚风初雪"
+        "牛马鹿河漫游人旧梦南晚风初雪小泽"
     )
 
     # 去掉空格
@@ -316,14 +364,6 @@ def generate_chinese_nickname():
     log.debug(f"生成昵称: {nickname}")
     return nickname
 
-
-def generate_uu_id(max_len=14):
-    """
-    生成 uu_id,最长 max_len 个字符
-    规则:字母 + 数字(不含特殊符号)
-    """
-    raw = uuid.uuid4().hex  # 32 位
-    return raw[:max_len]
 
 
 def run_elevated(exe_path: str, cwd: str) -> bool:
@@ -697,9 +737,17 @@ def capture_window_by_hwnd(hwnd, save_dir=r"C:\Users\Administrator\Desktop"):
         return None
 
 
+# if __name__ == "__main__":
+#     # 命令行支持: python launch_7fgame.py [--wait]
+#     wait_flag = "--wait" in sys.argv
+#     log.info(f"程序启动,参数: wait={wait_flag}")
+#     start_7fgame(wait=wait_flag)
+#     log.info("程序执行完毕")
+
+
+    # 测试代码
 if __name__ == "__main__":
-    # 命令行支持: python launch_7fgame.py [--wait]
-    wait_flag = "--wait" in sys.argv
-    log.info(f"程序启动,参数: wait={wait_flag}")
-    start_7fgame(wait=wait_flag)
-    log.info("程序执行完毕")
+    print("测试 generate_uu_id 方法：")
+    for i in range(10):
+        uid = generate_uu_id()
+        print(f"第 {i+1} 次生成: {uid}")
