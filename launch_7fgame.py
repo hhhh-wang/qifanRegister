@@ -119,9 +119,45 @@ def generate_uu_id():
         log.warning(f"使用降级 UID: {fallback_uid}")
         return fallback_uid
 
+def generate_uu_id(max_len=14):
+    """
+    生成 uu_id,最长 max_len 个字符
+    规则:以"src"为前缀，后面拼接随机数字
+    """
+    # 前缀"src"占3个字符，剩余长度给数字部分
+    prefix = "src"
+    num_len = max_len - len(prefix)
+    
+    if num_len <= 0:
+        # 如果max_len小于等于前缀长度，只返回前缀
+        uid = prefix[:max_len]
+        log.debug(f"生成 ID: {uid}")
+        return uid
+    
+    # 生成指定长度的随机数字字符串
+    min_num = 10 ** (num_len - 1) if num_len > 1 else 0
+    max_num = (10 ** num_len) - 1
+    num_part = str(random.randint(min_num, max_num))
+    
+    # 如果数字长度小于预期，前面补0
+    if len(num_part) < num_len:
+        num_part = num_part.zfill(num_len)
+    
+    uid = prefix + num_part
+    log.debug(f"生成 ID: {uid}")
+    return uid
 # 新增全局账号密码与控件图片路径(请根据需要修改用户名/密码)
-USERNAME = generate_uu_id()
+USERNAME = generate_uu_id(10)
 PASSWORD = "a123123"
+
+# def get_username():
+#     global _USERNAME
+#     if _USERNAME is None:
+#         _USERNAME = generate_uu_id()
+#         log.info(f"首次生成用户名: {_USERNAME}")
+#     return _USERNAME
+
+
 
 # 新增:真实姓名与身份证号(已由你提供)
 NAME = "李文良"
@@ -157,7 +193,9 @@ def start_7fgame(wait: bool = False) -> subprocess.Popen:
         log.warning("7FGame.exe 已在运行,跳过启动")
         print("7FGame.exe 已在运行,跳过启动。")
         sys.exit(0)
-
+        
+    # USERNAME = get_username()  # ✅ 在这里才真正生成
+    # log.info(f"配置信息 - 用户名={USERNAME}, ...")
     cwd = os.path.dirname(EXE_PATH)
     log.info(f"游戏路径: {EXE_PATH}")
     log.debug(f"工作目录: {cwd}")
